@@ -43,6 +43,7 @@ export interface GameState {
   turnCount: number;
   lastAction: string;
   winner: Player | null;
+  consecutiveFolds: number; // resets to 0 on any play; when it reaches players.length all hands are folded
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -220,6 +221,16 @@ export function penaltyValue(card: Card, aceMode: 'low' | 'high' | null): number
   return card.rank;
 }
 
+/** Move every card remaining in every player's hand to their penalty pile. */
+export function foldAllHands(state: GameState): GameState {
+  const players = state.players.map(p => ({
+    ...p,
+    penalties: [...p.penalties, ...p.hand],
+    hand: [],
+  }));
+  return { ...state, players };
+}
+
 export function calculateScore(player: Player, aceMode: 'low' | 'high' | null): number {
   return player.penalties.reduce((sum, c) => sum + penaltyValue(c, aceMode), 0);
 }
@@ -291,6 +302,7 @@ export function initGame(): GameState {
     gameOver: false,
     aceMode: null,
     turnCount: 0,
+    consecutiveFolds: 0,
     lastAction: `${players[startingPlayerIndex].name} holds 7♠ and goes first`,
     winner: null,
   };

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GameState, Card, initGame, getValidMoves, isValidPlay, applyPlay, aiChooseCard, aiChoosePenalty, calculateScore, SUIT_SYMBOLS, rankLabel,  } from './gameLogic';
+import { GameState, Card, initGame, getValidMoves, isValidPlay, applyPlay, aiChooseCard, aiChoosePenalty, calculateScore, foldAllHands, SUIT_SYMBOLS, rankLabel,  } from './gameLogic';
 import BoardSequences from './BoardSequences';
 import PlayerHand from './PlayerHand';
 import PlayerPanel from './PlayerPanel';
@@ -13,6 +13,35 @@ import { useRouter } from 'next/navigation';
 interface GameBoardClientProps {
   difficulty?: 'easy' | 'normal' | 'hard';
   playerNames?: string[];
+}
+
+/**
+ * After a fold or play has been applied, check for:
+ * 1. All-fold cycle → fold every remaining hand card as penalty
+ * 2. All hands empty → game over
+ */
+function resolveState(state: GameState): GameState {
+  let s = state;
+
+  // All players folded consecutively → mass-fold all remaining hands
+  if (s.consecutiveFolds >= s.players.length) {
+    s = foldAllHands(s);
+    s = { ...s, lastAction: s.lastAction + ' — all players folded! Remaining hands discarded.' };
+  }
+
+  // Check game over
+  const allEmpty = s.players.every(p => p.hand.length === 0);
+  if (allEmpty) {
+    const scores = s.players.map(p => ({
+      player: p,
+      score: calculateScore(p, s.aceMode),
+    }));
+    const minScore = Math.min(...scores.map(sc => sc.score));
+    const winner = scores.find(sc => sc.score === minScore)!.player;
+    return { ...s, gameOver: true, winner };
+  }
+
+  return s;
 }
 
 export default function GameBoardClient({ difficulty = 'normal', playerNames = ['You', 'Aria', 'Blake', 'Cora'] }: GameBoardClientProps) {
@@ -64,6 +93,7 @@ export default function GameBoardClient({ difficulty = 'normal', playerNames = [
             board: newBoard,
             aceMode: newAceMode,
             players: updatedPlayers,
+            consecutiveFolds: 0,
             lastAction: `${currentPlayer.name} played ${rankLabel(cardToPlay.rank)}${SUIT_SYMBOLS[cardToPlay.suit]}`,
           };
           setLastPlayedCard(cardToPlay);
@@ -82,21 +112,13 @@ export default function GameBoardClient({ difficulty = 'normal', playerNames = [
           newState = {
             ...prev,
             players: updatedPlayers,
+            consecutiveFolds: prev.consecutiveFolds + 1,
             lastAction: `${currentPlayer.name} placed a card face-down (penalty)`,
           };
         }
 
-        // Check game over
-        const allEmpty = newState.players.every(p => p.hand.length === 0);
-        if (allEmpty) {
-          const scores = newState.players.map(p => ({
-            player: p,
-            score: calculateScore(p, newState.aceMode),
-          }));
-          const minScore = Math.min(...scores.map(s => s.score));
-          const winner = scores.find(s => s.score === minScore)!.player;
-          newState = { ...newState, gameOver: true, winner };
-        }
+        // Check game over / all-fold mass discard
+        newState = resolveState(newState);
 
         // Advance turn
         if (!newState.gameOver) {
@@ -152,6 +174,7 @@ export default function GameBoardClient({ difficulty = 'normal', playerNames = [
           board: newBoard,
           aceMode: newAceMode,
           players: updatedPlayers,
+          consecutiveFolds: 0,
           lastAction: `You played ${rankLabel(card.rank)}${SUIT_SYMBOLS[card.suit]}`,
           currentPlayerIndex: (prev.currentPlayerIndex + 1) % 4,
           turnCount: prev.turnCount + 1,
@@ -203,20 +226,15 @@ export default function GameBoardClient({ difficulty = 'normal', playerNames = [
       let newState: GameState = {
         ...prev,
         players: updatedPlayers,
+        consecutiveFolds: prev.consecutiveFolds + 1,
         lastAction: `You placed a card face-down (penalty)`,
         currentPlayerIndex: (prev.currentPlayerIndex + 1) % 4,
         turnCount: prev.turnCount + 1,
       };
 
-      const allEmpty = newState.players.every(p => p.hand.length === 0);
-      if (allEmpty) {
-        const scores = newState.players.map(p => ({
-          player: p,
-          score: calculateScore(p, newState.aceMode),
-        }));
-        const minScore = Math.min(...scores.map(s => s.score));
-        const winner = scores.find(s => s.score === minScore)!.player;
-        newState = { ...newState, gameOver: true, winner, currentPlayerIndex: prev.currentPlayerIndex };
+      newState = resolveState(newState);
+      if (newState.gameOver) {
+        newState = { ...newState, currentPlayerIndex: prev.currentPlayerIndex };
       }
 
       return newState;
