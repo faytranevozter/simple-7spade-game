@@ -106,10 +106,6 @@ export default function PlayerHand({
                     } : undefined}
                     isFaceDown={false}
                   />
-                  {/* Playable indicator dot */}
-                  {isPlayable && isCurrentTurn && !isSelected && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full border-2 border-[#1a4a2e] z-10" />
-                  )}
                 </div>
               );
             })}

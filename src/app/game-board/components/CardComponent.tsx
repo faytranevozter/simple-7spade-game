@@ -137,6 +137,10 @@ export default function CardComponent({
           <div className="w-8 h-8 border-2 border-white/40 rounded-sm rotate-45" />
         </div>
       )}
+      {/* Playable indicator dot — lives inside the card so it moves with hover transform */}
+      {isPlayable && !isSelected && !isFaceDown && (
+        <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full border-2 border-[#1a4a2e] z-10" />
+      )}
     </div>
   );
 }

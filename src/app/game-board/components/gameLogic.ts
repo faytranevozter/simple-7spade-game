@@ -148,20 +148,11 @@ export function isValidPlay(card: Card, board: BoardState, aceMode: 'low' | 'hig
   // Sequence not started for this suit
   if (seq.low === 0) return false;
 
-  // Ace handling
+  // Ace handling — Ace (rank 1) can close low (before 2) or high (after King)
   if (rank === 1) {
-    if (aceMode === null || aceMode === 'low') {
-      // Ace low: can play after 2 (seq.low === 2)
-      return seq.low === 2;
-    }
-    return false;
-  }
-
-  if (rank === 14) {
-    if (aceMode === null || aceMode === 'high') {
-      // Ace high: can play after King (seq.high === 13)
-      return seq.high === 13;
-    }
+    if (seq.closed) return false;
+    if ((aceMode === null || aceMode === 'low') && seq.low === 2) return true;
+    if ((aceMode === null || aceMode === 'high') && seq.high === 13) return true;
     return false;
   }
 
@@ -190,17 +181,22 @@ export function applyPlay(board: BoardState, card: Card, aceMode: 'low' | 'high'
     seq.high = 7;
     seq.cards.push(card);
   } else if (card.rank === 1) {
-    // Ace low
-    seq.low = 1;
-    seq.cards.unshift(card);
-    seq.closed = true;
-    newAceMode = 'low';
-  } else if (card.rank === 14) {
-    // Ace high
-    seq.high = 14;
-    seq.cards.push(card);
-    seq.closed = true;
-    newAceMode = 'high';
+    // Ace can close high (after King) or low (before 2).
+    // Close high when aceMode is 'high', or when aceMode is null and only the high end is ready.
+    const willCloseHigh =
+      aceMode === 'high' ||
+      (aceMode === null && seq.high === 13 && seq.low !== 2);
+    if (willCloseHigh) {
+      seq.high = 14; // Ace occupies position 14 in the high-close sequence
+      seq.cards.push(card);
+      seq.closed = true;
+      newAceMode = 'high';
+    } else {
+      seq.low = 1;
+      seq.cards.unshift(card);
+      seq.closed = true;
+      newAceMode = 'low';
+    }
   } else if (card.rank === seq.low - 1) {
     seq.low = card.rank;
     seq.cards.unshift(card);
