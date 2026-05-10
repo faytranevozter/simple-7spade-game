@@ -63,7 +63,7 @@ export default function BoardSequences({ board, lastPlayedCard, aceMode }: Board
               </div>
 
               {/* Sequence */}
-              <div className="flex-1 flex items-center gap-1 overflow-x-auto scrollbar-hide min-h-[52px]">
+              <div className="flex-1 flex items-center gap-1 overflow-x-auto scrollbar-hide min-h-[52px] px-1">
                 {!started ? (
                   <div className="flex items-center gap-2 text-white/20">
                     <div className="w-9 h-12 rounded-md border-2 border-dashed border-white/15 flex items-center justify-center">
